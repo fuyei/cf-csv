@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.0/jquery.min.js"></script>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<pre id="chart"></pre>
+</body>
+<script type="text/javascript">
+$(function(){
+  rawJSONtoString(); // parse raw json from g0v to string and print out
+  /*
+  $.ajax({url:'politicians.json'}).done(function(response){ 
+    console.log(response)
+  });
+  */
+});
+
+function rawJSONtoString(){
+  $.ajax({url:'data.json'}).done(function(response) {
+    var processedData = [];
+    $.each(response.data, function(d) { processedData.push(CFinancePage(this)); });
+
+    var politicians = getUniqueArrayByKey(processedData, 'people');
+     $('#chart').html($.stringify(politicians));
+    // printCSV(politicians)
+  });
+}
+
+function printCSV(data) {
+  var str = 'Name, IDs\n';
+  $.each(data, function() {
+    str+= this.people+ ',"' +this.ids.join(',') +'"\n';
+  });
+  $('#chart').html(str);
+}
+
+function getUniqueArrayByKey(arr, key) {
+  var ret = [];
+  for(var i=0; i<arr.length; i++) {
+    var match = arr[i][key];
+    var found = false;
+    for (var j=0; j<ret.length; j++) {
+      var est = ret[j][key];
+      if(est==match) {
+        ret[j].ids.push(arr[i].page_id );
+        found = true;
+        break;
+      } 
+    }
+
+    if(!found) {
+      var obj ={};
+      obj[key] = match;
+      obj['ids'] = [arr[i].page_id ];
+      ret.push(obj);
+      found = false;
+    } 
+  }// done for loop
+
+  return ret;
+}
+
+function CFinancePage(data) {
+    var ret = {};
+    ret.file = data.file;
+    ret.file = ret.file.replace(/-([\?]+)\/([\?]+)\/([\?]+)-([\?]+)\/([\?]+)\/([\?]+)/g, '-未確定資料日期');
+    ret.file = ret.file.replace(/-[^\/\-]+\.pdf$/, '-[未分類帳戶]-未確定資料日期');
+    ret.file = ret.file.replace(/專戶$/, '專戶-[未分類帳戶]-未確定資料日期');
+
+    var pattern = new RegExp(/^(第[\d一二三四五六七八九十]+[屆任]?)(.*?)(擬?參選人)(.+)政治獻金專戶-([^-]+)-?(.+)?$/);
+
+    ret.number = ret.file.replace(pattern, '$1'); //第N任
+    ret.title = ret.file.replace(pattern, '$2');
+    ret.people = ret.file.replace(pattern, '$4');
+    ret.politician = ret.file.replace(pattern, '$4');
+    ret.date = ret.file.replace(pattern, '$6');
+    ret.page_id = data.id;
+
+    ret.__CATEGORY__ = ret.file.replace(pattern, '$4|$5|$6');
+    ret.file = ret.file.replace(pattern, '$5');
+
+    ret.__CATEGORY__ = ret.__CATEGORY__.split('|');
+    ret.__CATEGORY__.pop();
+    ret.__CATEGORY__ = ret.__CATEGORY__.splice(0, 4);
+    
+     //console.log(ret);
+    return ret;
+  }
+
+  function getUniqueFiles(response) {
+  var data = response.data, arr = [];
+    
+    // [{name:'Title', ids= [] }]
+    for(var i=0; i<data.length; i++) {
+      var f = data[i].file;
+      var found = false;
+      for (var j=0; j<arr.length; j++) {
+        var est = arr[j].name;
+        if(est==f) {
+          arr[j].ids.push(data[i].id);
+          found = true;
+          break;
+        } 
+      }
+      if(!found) {
+        arr.push({name:f, ids:[data[i].id]});
+        found = false;
+      } 
+    }// done for loop
+    
+    var str = '[\n';
+    $.each(arr, function(i,d) {console.log(d,i)
+      str +='  {\n';
+      str +='    "name":"'+ d.name + '",\n';
+      str +='    "ids" :['+ d.ids.join(',') + ']\n';
+      str +='  }';
+      if(i!=arr.length-1) {str +=',\n'}
+      else {str +='\n'}
+    });
+    str+= '';
+    str+= ']'
+    return str;
+}
+jQuery.extend({
+    stringify  : function stringify(obj) {
+        var t = typeof (obj);
+        if (t != "object" || obj === null) {
+            // simple data type
+            if (t == "string") obj = '"' + obj + '"';
+            return String(obj);
+        } else {
+            // recurse array or object
+            var n, v, json = [], arr = (obj && obj.constructor == Array);
+ 
+            for (n in obj) {
+                v = obj[n];
+                t = typeof(v);
+                if (obj.hasOwnProperty(n)) {
+                    if (t == "string") v = '"' + v + '"'; else if (t == "object" && v !== null) v = jQuery.stringify(v);
+                    json.push((arr ? "" : '"' + n + '":') + String(v));
+                }
+            }
+            return (arr ? "[" : "{") + String(json) + (arr ? "]" : "}");
+        }
+    }
+});
+</script>
+</html>
